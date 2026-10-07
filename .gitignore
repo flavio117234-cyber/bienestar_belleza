@@ -1,0 +1,10 @@
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# No subir imágenes de prueba locales a GitHub
+uploads/perfiles/*
+!uploads/perfiles/.gitkeep
+uploads/negocios/*
+!uploads/negocios/.gitkeep
