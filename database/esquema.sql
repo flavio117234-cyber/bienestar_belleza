@@ -15,6 +15,7 @@ CREATE TABLE negocios (
     descripcion TEXT,
     direccion VARCHAR(255) NOT NULL,
     telefono VARCHAR(20),
+    horario VARCHAR(255) DEFAULT 'Lunes a Sábado de 9:00 AM a 7:00 PM',
     foto_portada VARCHAR(255) DEFAULT 'default_negocio.png',
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );

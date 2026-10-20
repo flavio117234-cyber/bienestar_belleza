@@ -68,7 +68,7 @@ if (!file_exists($ruta_foto) || empty($foto_perfil)) {
             <h1>Encuentra y reserva los mejores servicios de atención personal en Xalapa</h1>
             <p>Barberías, estéticas, spas, manicure y más en un solo lugar.</p>
 
-            <form action="index.php" method="GET" class="search-box">
+            <form action="index.php" method="GET" class="search-box" autocomplete="off">
                 <input type="text" name="q" placeholder="¿Qué servicio buscas? (ej. Corte, Uñas, Masaje)">
                 <button type="submit" class="btn btn-search">Buscar</button>
             </form>
