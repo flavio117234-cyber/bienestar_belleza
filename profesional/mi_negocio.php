@@ -2,8 +2,9 @@
 session_start();
 require_once '../conexion/bd.php';
 
-if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] !== 'profesional') {
-    header("Location: ../login.php");
+// 1. Si no ha iniciado sesión, enviarlo al login avisándole que debe autenticarse
+if (!isset($_SESSION['usuario_id'])) {
+    header("Location: ../login.php?redirect=registro_negocio");
     exit();
 }
 
@@ -11,6 +12,7 @@ $usuario_id = $_SESSION['usuario_id'];
 $mensaje_error = '';
 $mensaje_exito = '';
 
+// Consultar si el usuario ya tiene registrado un negocio
 $stmt = $conexion->prepare("SELECT id, nombre_negocio, descripcion, direccion, telefono, horario, foto_portada FROM negocios WHERE usuario_id = ?");
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
@@ -19,6 +21,7 @@ $negocio = $res->fetch_assoc();
 
 $tiene_negocio = ($res->num_rows > 0);
 
+// Procesar el formulario solo al enviar mediante POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nombre_negocio = trim($_POST['nombre_negocio']);
     $descripcion = trim($_POST['descripcion']);
@@ -30,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($nombre_negocio) || empty($direccion) || empty($telefono) || empty($horario)) {
         $mensaje_error = "El nombre, dirección, teléfono y horario de atención son obligatorios.";
     } else {
+        // Manejo de foto de portada...
         if (isset($_FILES['foto_portada']) && $_FILES['foto_portada']['error'] === UPLOAD_ERR_OK) {
             $foto_tmp = $_FILES['foto_portada']['tmp_name'];
             $nombre_original = $_FILES['foto_portada']['name'];
@@ -57,21 +61,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($mensaje_error)) {
             if ($tiene_negocio) {
+                // Actualizar negocio existente
                 $stmt_upd = $conexion->prepare("UPDATE negocios SET nombre_negocio = ?, descripcion = ?, direccion = ?, telefono = ?, horario = ?, foto_portada = ? WHERE usuario_id = ?");
                 $stmt_upd->bind_param("ssssssi", $nombre_negocio, $descripcion, $direccion, $telefono, $horario, $foto_portada, $usuario_id);
-                
-                if ($stmt_upd->execute()) {
-                    $mensaje_exito = "¡Datos del negocio actualizados correctamente!";
-                } else {
-                    $mensaje_error = "Error al actualizar la información del negocio.";
-                }
+                $stmt_upd->execute();
+                $mensaje_exito = "¡Datos del negocio actualizados correctamente!";
             } else {
+                // Registrar nuevo negocio
                 $stmt_ins = $conexion->prepare("INSERT INTO negocios (usuario_id, nombre_negocio, descripcion, direccion, telefono, horario, foto_portada) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmt_ins->bind_param("issssss", $usuario_id, $nombre_negocio, $descripcion, $direccion, $telefono, $horario, $foto_portada);
 
                 if ($stmt_ins->execute()) {
-                    $mensaje_exito = "¡Negocio registrado con éxito!";
+                    // AQUÍ ES DONDE SE CONVIERTE EN PROFESIONAL SOLO AL COMPLETAR EL REGISTRO
+                    $stmt_upgrade = $conexion->prepare("UPDATE usuarios SET tipo_usuario = 'profesional' WHERE id = ?");
+                    $stmt_upgrade->bind_param("i", $usuario_id);
+                    $stmt_upgrade->execute();
+                    
+                    $_SESSION['usuario_tipo'] = 'profesional';
                     $tiene_negocio = true;
+                    $mensaje_exito = "¡Negocio registrado con éxito! Tu cuenta ahora es Profesional.";
                 } else {
                     $mensaje_error = "Error al registrar el negocio.";
                 }
