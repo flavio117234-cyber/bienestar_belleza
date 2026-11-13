@@ -262,7 +262,7 @@ section{padding:36px 0 0}
     <h1>Encuentra y reserva tu próximo cuidado en <?= e(CIUDAD) ?></h1>
     <p>Spas, peluquerías, uñas y más. Compara horarios, precios y reseñas de negocios locales.</p>
 
-    <form class="sbar" action="index.php" method="get" role="search">
+    <form class="sbar" action="buscar.php" method="get" role="search" autoComplete="off">
       <label class="fld">
         <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="text" name="q" placeholder="¿Qué servicio buscas?" aria-label="Servicio" value="<?= isset($_GET['q']) ? e($_GET['q']) : '' ?>">
@@ -277,7 +277,7 @@ section{padding:36px 0 0}
     <div class="pop">
       <span class="l">Populares:</span>
       <?php foreach ($POPULARES as $p): ?>
-        <a href="index.php?q=<?= urlencode($p) ?>"><?= e($p) ?></a>
+        <a href="buscar.php?q=<?= urlencode($p) ?>"><?= e($p) ?></a>
       <?php endforeach; ?>
     </div>
   </div>
@@ -289,7 +289,7 @@ section{padding:36px 0 0}
     <div class="sh"><h2>Explora por categoría</h2></div>
     <div class="cats">
       <?php foreach ($CATEGORIAS as $slug => [$nombre, $icono]): ?>
-        <a href="index.php?cat=<?= e($slug) ?>" class="cat">
+        <a href="buscar.php?cat=<?= e($slug) ?>" class="cat">
           <i><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><?= $icono ?></svg></i>
           <b><?= e($nombre) ?></b>
         </a>
@@ -309,7 +309,7 @@ section{padding:36px 0 0}
             $foto_url = $has_foto ? 'uploads/negocios/' . $n['foto'] : '';
         ?>
           <div class="card">
-            <a href="index.php" aria-label="Ver <?= e($n['nombre']) ?>">
+           <a href="negocio.php?id=<?= (int) $n['id'] ?>" aria-label="Ver <?= e($n['nombre']) ?>">
               <div class="img"<?= $has_foto ? ' style="background-image:url(\'' . e($foto_url) . '\')"' : '' ?>>
                 <?= $has_foto ? '' : 'Sin Imagen' ?>
               </div>
@@ -334,10 +334,10 @@ section{padding:36px 0 0}
   <section id="zonas">
     <div class="sh"><h2>Busca por zona en Xalapa</h2></div>
     <div class="zonas">
-      <a href="index.php?q=Centro">Centro</a>
-      <a href="index.php?q=Las+Ánimas">Las Ánimas</a>
-      <a href="index.php?q=Araucarias">Araucarias</a>
-      <a href="index.php?q=Badillo">Badillo</a>
+      <a href="buscar.php?q=Centro">Centro</a>
+      <a href="buscar.php?q=Las+Ánimas">Las Ánimas</a>
+      <a href="buscar.php?q=Araucarias">Araucarias</a>
+      <a href="buscar.php?q=Badillo">Badillo</a>
     </div>
   </section>
 
