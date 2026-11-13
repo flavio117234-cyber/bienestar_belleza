@@ -52,3 +52,19 @@ CREATE TABLE resenas (
     FOREIGN KEY (cliente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE
 );
+
+-- Tabla de Citas / Reservaciones
+CREATE TABLE IF NOT EXISTS citas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cliente_id INT NOT NULL,
+    negocio_id INT NOT NULL,
+    servicio_id INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora TIME NOT NULL,
+    notas VARCHAR(255) DEFAULT NULL,
+    estado ENUM('pendiente', 'confirmada', 'cancelada') DEFAULT 'pendiente',
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cliente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE,
+    FOREIGN KEY (servicio_id) REFERENCES servicios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
