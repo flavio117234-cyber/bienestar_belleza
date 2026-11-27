@@ -227,7 +227,7 @@ section{padding:36px 0 0}
             <?php if ($tipo_usuario === 'profesional'): ?>
               <a href="profesional/panel.php">Mi Panel de Negocio</a>
             <?php else: ?>
-              <a href="cliente/mis_reservas.php">Mis Reservas</a>
+              <a href="mis_reservas.php">Mis Reservas</a>
             <?php endif; ?>
             <a href="cerrar_sesion.php" class="logout">Cerrar Sesión</a>
           </div>

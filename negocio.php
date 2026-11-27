@@ -17,7 +17,7 @@ if ($id <= 0) {
     exit();
 }
 
-// 1. Consultar datos reales del negocio y correo del dueño (incluyendo usuario_id)
+// 1. Consultar datos reales del negocio y correo del dueño
 $stmt = $conexion->prepare("
     SELECT n.id, n.usuario_id, n.nombre_negocio, n.descripcion, n.direccion, n.telefono, n.horario, n.foto_portada, u.correo 
     FROM negocios n
@@ -34,22 +34,62 @@ if ($res->num_rows === 0) {
 }
 
 $negocio = $res->fetch_assoc();
-
-// Verificar si el usuario actual es el dueño de este negocio
 $es_dueno = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === (int)$negocio['usuario_id']);
 
 // 2. Consultar servicios reales del negocio
 $stmt_serv = $conexion->prepare("SELECT id, nombre_servicio, descripcion, precio, duracion_minutos FROM servicios WHERE negocio_id = ? ORDER BY precio ASC");
 $stmt_serv->bind_param("i", $id);
 $stmt_serv->execute();
-$res_serv = $stmt_serv->get_result();
+$servicios = $stmt_serv->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$servicios = [];
-while ($row = $res_serv->fetch_assoc()) {
-    $servicios[] = $row;
+// 3. Consultar reseñas, promedio y fotos
+$stmt_res = $conexion->prepare("
+    SELECT r.id, r.estrellas, r.etiquetas, r.comentario, r.mostrar_nombre, r.creada_en, u.nombre AS autor_nombre
+    FROM resenas r
+    INNER JOIN usuarios u ON r.usuario_id = u.id
+    WHERE r.negocio_id = ?
+    ORDER BY r.creada_en DESC
+");
+$stmt_res->bind_param("i", $id);
+$stmt_res->execute();
+$resenas = $stmt_res->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$total_resenas = count($resenas);
+$promedio_estrellas = 0;
+$fotos_por_resena = [];
+
+if ($total_resenas > 0) {
+    $suma = 0;
+    $ids_resenas = [];
+    foreach ($resenas as $r) {
+        $suma += (int) $r['estrellas'];
+        $ids_resenas[] = (int) $r['id'];
+    }
+    $promedio_estrellas = round($suma / $total_resenas, 1);
+
+    // Cargar fotos asociadas a estas reseñas
+    $placeholders = implode(',', array_fill(0, count($ids_resenas), '?'));
+    $types = str_repeat('i', count($ids_resenas));
+    $stmt_fotos = $conexion->prepare("SELECT resena_id, archivo FROM resena_fotos WHERE resena_id IN ($placeholders)");
+    $stmt_fotos->bind_param($types, ...$ids_resenas);
+    $stmt_fotos->execute();
+    $res_fotos = $stmt_fotos->get_result();
+    while ($f = $res_fotos->fetch_assoc()) {
+        $fotos_por_resena[(int)$f['resena_id']][] = $f['archivo'];
+    }
 }
 
-// 3. Preparar rutas y enlaces
+// Verificar si el usuario logueado ya reseñó este negocio
+$ya_reseno = false;
+if (isset($_SESSION['usuario_id']) && !$es_dueno) {
+    $uid = (int) $_SESSION['usuario_id'];
+    $stmt_chk = $conexion->prepare("SELECT id FROM resenas WHERE usuario_id = ? AND negocio_id = ?");
+    $stmt_chk->bind_param("ii", $uid, $id);
+    $stmt_chk->execute();
+    $ya_reseno = ($stmt_chk->get_result()->num_rows > 0);
+}
+
+// 4. Preparar rutas y enlaces
 $has_portada = !empty($negocio['foto_portada']) && $negocio['foto_portada'] !== 'default_negocio.png' && file_exists('uploads/negocios/' . $negocio['foto_portada']);
 $portada_url = $has_portada ? 'uploads/negocios/' . $negocio['foto_portada'] : '';
 
@@ -89,9 +129,10 @@ a{color:inherit;text-decoration:none}
 h1{margin:12px 0 2px;font-size:24px;line-height:1.2;font-weight:700}
 h2{margin:0 0 12px;font-size:18px;font-weight:700}
 .sub{font-size:14px;color:#64748B}
-.meta{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;font-size:14px}
+.meta{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:14px}
 .badge{font-size:13px;font-weight:500;padding:4px 10px;border-radius:12px}
 .badge.open{background:#DCFCE7;color:#166534}
+.rating-pill{display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;font-size:13px;font-weight:700;padding:4px 10px;border-radius:12px}
 .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px}
 .btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0;border:1px solid #DDD8F0;border-radius:12px;font:500 12px 'DM Sans',sans-serif;color:inherit;min-height:44px;background:#fff;cursor:pointer}
 .btn:hover{border-color:#9048DB}
@@ -101,7 +142,7 @@ h2{margin:0 0 12px;font-size:18px;font-weight:700}
 .tabs a.on{font-weight:700;color:#9048DB;border-bottom-color:#9048DB}
 .cols{display:flex;flex-direction:column;gap:24px;padding:24px 0 32px}
 .aside{display:flex;flex-direction:column;gap:24px}
-.sec-box{border-radius:14px;transition:box-shadow .35s,background-color .35s;padding:4px}
+.sec-box{border-radius:14px;transition:box-shadow .35s,background-color .35s;padding:4px;margin-bottom:24px}
 .sec-box.highlight{background-color:#F0E6FC;box-shadow:0 0 0 8px #F0E6FC}
 .svcs{display:grid;grid-template-columns:1fr;column-gap:32px}
 .svc{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #E4E0F2}
@@ -118,6 +159,18 @@ h2{margin:0 0 12px;font-size:18px;font-weight:700}
 .cta-btn{display:flex;align-items:center;justify-content:center;height:52px;border-radius:14px;background:#9048DB;color:#fff;font-size:16px;font-weight:700}
 .cta-btn.owner-btn{background:#2D3748}
 .cta-d{display:none}
+/* Estilos de Reseñas */
+.rev-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.btn-rev{padding:9px 16px;border-radius:10px;background:#F0E6FC;color:#6D28B8;font-size:14px;font-weight:700;border:1px solid #DDD8F0}
+.btn-rev:hover{background:#9048DB;color:#fff}
+.rev-card{background:#fff;border:1px solid #E4E0F2;border-radius:14px;padding:18px;margin-bottom:14px}
+.rev-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.rev-stars{color:#F5A623;font-size:16px;letter-spacing:1px}
+.rev-tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.rev-tag{background:#F0E6FC;color:#6D28B8;font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px}
+.rev-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.rev-photos img{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid #E4E0F2}
+.alert-ok{background:#DCFCE7;color:#166534;border:1px solid #BBF7D0;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:14px;font-weight:500}
 @media (min-width:640px){
 .cover{height:260px}
 .aside{display:grid;grid-template-columns:1fr 1fr;gap:24px}
@@ -159,6 +212,11 @@ h1{font-size:32px}
         <div class="sub">Bienestar &amp; Belleza · <?= e($negocio['direccion']) ?>, Xalapa</div>
         <div class="meta">
           <span class="badge open">Disponible en Xalapa</span>
+          <?php if ($total_resenas > 0): ?>
+            <span class="rating-pill">★ <?= number_format($promedio_estrellas, 1) ?> (<?= $total_resenas ?> <?= $total_resenas === 1 ? 'reseña' : 'reseñas' ?>)</span>
+          <?php else: ?>
+            <span style="font-size:13px;color:#64748B;">Sin reseñas aún</span>
+          <?php endif; ?>
         </div>
       </div>
 
@@ -180,6 +238,7 @@ h1{font-size:32px}
 
     <nav class="tabs" aria-label="Secciones">
       <a href="#servicios" class="on">Servicios</a>
+      <a href="#resenas">Reseñas (<?= $total_resenas ?>)</a>
       <a href="#horarios">Horarios</a>
       <a href="#ubicacion">Ubicación</a>
       <a href="#contacto">Contacto</a>
@@ -218,6 +277,71 @@ h1{font-size:32px}
             </div>
           <?php endif; ?>
         </section>
+
+        <!-- Sección de Reseñas -->
+        <section id="resenas" class="sec-box">
+          <div class="rev-head">
+            <h2 style="margin:0;">Opiniones de clientes (<?= $total_resenas ?>)</h2>
+            <?php if (!$es_dueno): ?>
+              <?php if (!isset($_SESSION['usuario_id'])): ?>
+                <a href="login.php" class="btn-rev">Inicia sesión para opinar</a>
+              <?php elseif (!$ya_reseno): ?>
+                <a href="resena.php?id=<?= $id ?>" class="btn-rev">✍️ Escribir reseña</a>
+              <?php endif; ?>
+            <?php endif; ?>
+          </div>
+
+          <?php if (isset($_GET['resena']) && $_GET['resena'] === 'ok'): ?>
+            <div class="alert-ok">¡Gracias! Tu reseña se publicó correctamente.</div>
+          <?php endif; ?>
+
+          <?php if (empty($resenas)): ?>
+            <div style="color:#64748B; background:#fff; padding:24px; border-radius:14px; border:1px solid #E4E0F2; text-align:center;">
+              Aún no hay reseñas para este establecimiento. ¡Sé el primero en compartir tu experiencia!
+            </div>
+          <?php else: ?>
+            <?php foreach ($resenas as $r): ?>
+              <?php
+                $rid = (int) $r['id'];
+                $autor = ((int)$r['mostrar_nombre'] === 1) ? $r['autor_nombre'] : 'Cliente verificado';
+                $est = (int) $r['estrellas'];
+                $etiquetasArr = !empty($r['etiquetas']) ? explode(',', $r['etiquetas']) : [];
+                $fotosArr = $fotos_por_resena[$rid] ?? [];
+              ?>
+              <div class="rev-card">
+                <div class="rev-top">
+                  <div>
+                    <strong style="font-size:15px;"><?= e($autor) ?></strong>
+                    <span style="font-size:12px;color:#64748B;margin-left:8px;"><?= date('d/m/Y', strtotime($r['creada_en'])) ?></span>
+                  </div>
+                  <div class="rev-stars" aria-label="<?= $est ?> de 5 estrellas">
+                    <?= str_repeat('★', $est) . str_repeat('☆', 5 - $est) ?>
+                  </div>
+                </div>
+
+                <?php if (!empty($etiquetasArr)): ?>
+                  <div class="rev-tags">
+                    <?php foreach ($etiquetasArr as $tg): ?>
+                      <span class="rev-tag"><?= e($tg) ?></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+
+                <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#4B5563;"><?= nl2br(e($r['comentario'])) ?></p>
+
+                <?php if (!empty($fotosArr)): ?>
+                  <div class="rev-photos">
+                    <?php foreach ($fotosArr as $foto): ?>
+                      <a href="uploads/resenas/<?= e($foto) ?>" target="_blank" rel="noopener">
+                        <img src="uploads/resenas/<?= e($foto) ?>" alt="Foto de reseña">
+                      </a>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </section>
       </div>
 
       <div class="aside">
@@ -227,14 +351,14 @@ h1{font-size:32px}
           <a href="<?= e($reservar) ?>" class="cta-btn cta-d full">Reservar cita</a>
         <?php endif; ?>
 
-        <section id="horarios" class="sec-box">
+        <section id="horarios" class="sec-box" style="margin-bottom:0;">
           <h2>Horario de atención</h2>
           <div class="hrs">
             ⏰ <strong><?= e($negocio['horario'] ?: 'Consultar directamente con el negocio') ?></strong>
           </div>
         </section>
 
-        <section id="ubicacion" class="sec-box">
+        <section id="ubicacion" class="sec-box" style="margin-bottom:0;">
           <h2>Ubicación</h2>
           <div class="map">
             <iframe src="<?= e($mapaEmbed) ?>" loading="lazy" title="Mapa de <?= e($negocio['nombre_negocio']) ?>"></iframe>
@@ -246,7 +370,7 @@ h1{font-size:32px}
           <a href="<?= e($mapaLink) ?>" class="outl" target="_blank" rel="noopener">Abrir en mapas</a>
         </section>
 
-        <section id="contacto" class="sec-box full">
+        <section id="contacto" class="sec-box full" style="margin-bottom:0;">
           <h2>Contacto</h2>
           <a href="tel:<?= e($tel_limpio) ?>" class="crow">
             <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A15 15 0 013 6a2 2 0 012-2z"/></svg>
@@ -275,7 +399,6 @@ h1{font-size:32px}
 </div>
 
 <script>
-// Compartir
 document.getElementById('compartir').addEventListener('click', async function () {
   const data = { title: <?= json_encode($negocio['nombre_negocio']) ?>, url: location.href };
   try {
@@ -284,7 +407,6 @@ document.getElementById('compartir').addEventListener('click', async function ()
   } catch (e) {}
 });
 
-// Pestañas interactivas: marcan la pestaña activa, hacen scroll y resaltan el bloque
 const tabs = document.querySelectorAll('.tabs a');
 tabs.forEach(function (tab) {
   tab.addEventListener('click', function (e) {

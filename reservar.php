@@ -140,7 +140,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:#9048DB;backgr
       <div class="alert ok">
         <?= e($mensaje_exito) ?>
         <div style="margin-top:10px;">
-          <a href="index.php" style="color:#166534;font-weight:700;text-decoration:underline;">Volver al inicio</a>
+          <a href="mis_reservas.php" style="color:#166534;font-weight:700;text-decoration:underline;">Volver al inicio</a>
         </div>
       </div>
     <?php elseif ($mensaje_error): ?>

@@ -68,3 +68,24 @@ CREATE TABLE IF NOT EXISTS citas (
     FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE,
     FOREIGN KEY (servicio_id) REFERENCES servicios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS resenas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    negocio_id INT NOT NULL,
+    usuario_id INT NOT NULL,
+    estrellas TINYINT NOT NULL,
+    etiquetas VARCHAR(255) NULL,
+    comentario TEXT NOT NULL,
+    mostrar_nombre TINYINT(1) NOT NULL DEFAULT 1,
+    creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_usuario_negocio (usuario_id, negocio_id),
+    FOREIGN KEY (negocio_id) REFERENCES negocios(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS resena_fotos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    resena_id INT NOT NULL,
+    archivo VARCHAR(255) NOT NULL,
+    FOREIGN KEY (resena_id) REFERENCES resenas(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
